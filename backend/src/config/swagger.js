@@ -16,8 +16,8 @@ const options = {
       },
     ],
   },
-  // Documentamos las rutas de server.js y de la carpeta routes
-  apis: ['./server.js', './src/routes/*.js'],
+  // ACÁ ESTÁ EL CAMBIO CLAVE: **/*.js busca en todas las subcarpetas
+  apis: ['./server.js', './src/routes/**/*.js'],
 };
 
 const swaggerSpec = swaggerJsdoc(options);

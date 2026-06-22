@@ -1,17 +1,17 @@
 const { createClient } = require('@supabase/supabase-js');
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
-
+// Ya no hace falta requerir dotenv acá porque server.js ya lo hizo por todo el proyecto
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+// Cambiamos el nombre para que coincida EXACTAMENTE con tu .env
+const supabaseKey = process.env.VITE_SUPABASE_SECRET;
 
 let supabase = null;
 
 if (supabaseUrl && supabaseKey) {
   supabase = createClient(supabaseUrl, supabaseKey);
+  console.log('Cliente de Supabase inicializado correctamente.');
 } else {
-  console.warn('Supabase URL or Key is missing. Supabase client not initialized.');
+  console.warn('Faltan las credenciales de Supabase en el .env');
 }
 
 module.exports = supabase;
