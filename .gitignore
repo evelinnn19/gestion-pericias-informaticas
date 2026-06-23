@@ -45,3 +45,4 @@ out/
 sdb.sqlite
 *.db-shm
 *.db-wal
+bdschema.txt

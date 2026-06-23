@@ -1,0 +1,181 @@
+create table public.oficio (
+  idoficio serial not null,
+  idcausa integer not null,
+  nrointerno character varying(50) not null,
+  prioridad character varying(50) null,
+  fechahoraapertura timestamp without time zone null,
+  fiscalsolicitante character varying(150) null,
+  descripciontareaoficio text not null,
+  observaciondevinculacion text null,
+  constraint oficio_pkey primary key (idoficio),
+  constraint oficio_nrointerno_key unique (nrointerno),
+  constraint oficio_idcausa_fkey foreign KEY (idcausa) references causa (idcausa) on delete CASCADE
+) TABLESPACE pg_default;
+
+
+
+create table public.actaapertura (
+  idactaapertura serial not null,
+  idoficio integer not null,
+  fechahorarealizacion timestamp without time zone not null,
+  tiempodetolerancia character varying(50) null,
+  lugardelacto character varying(150) null,
+  personalpresente text null,
+  urldocumentofirmado character varying(255) null,
+  observacion text null,
+  constraint actaapertura_pkey primary key (idactaapertura),
+  constraint actaapertura_idoficio_fkey foreign KEY (idoficio) references oficio (idoficio) on delete CASCADE
+) TABLESPACE pg_default;
+
+create table public.auto (
+  idauto serial not null,
+  idcausa integer not null,
+  descripcionauto text not null,
+  constraint auto_pkey primary key (idauto),
+  constraint auto_idcausa_fkey foreign KEY (idcausa) references causa (idcausa) on delete CASCADE
+) TABLESPACE pg_default;
+
+
+create table public.auto_persona (
+  idauto integer not null,
+  idpersona integer not null,
+  rolenlacausa character varying(50) not null,
+  constraint auto_persona_pkey primary key (idauto, idpersona),
+  constraint auto_persona_idauto_fkey foreign KEY (idauto) references auto (idauto) on delete CASCADE,
+  constraint auto_persona_idpersona_fkey foreign KEY (idpersona) references persona (idpersona) on delete CASCADE
+) TABLESPACE pg_default;
+
+
+create table public.causa (
+  idcausa serial not null,
+  idestadocausa integer null,
+  iddelito integer null,
+  nrolegajo character varying(100) not null,
+  caratula character varying(255) not null,
+  fechaingreso timestamp without time zone null default CURRENT_TIMESTAMP,
+  fechalimite timestamp without time zone null,
+  constraint causa_pkey primary key (idcausa),
+  constraint causa_iddelito_fkey foreign KEY (iddelito) references tipodelito (iddelito),
+  constraint causa_idestadocausa_fkey foreign KEY (idestadocausa) references estadocausa (idestadocausa)
+) TABLESPACE pg_default;
+
+create table public.estadocausa (
+  idestadocausa serial not null,
+  descripcion character varying(100) not null,
+  constraint estadocausa_pkey primary key (idestadocausa),
+  constraint estadocausa_descripcion_key unique (descripcion)
+) TABLESPACE pg_default;
+
+create table public.estadooperativo (
+  idestado serial not null,
+  descripcionestado character varying(100) not null,
+  constraint estadooperativo_pkey primary key (idestado),
+  constraint estadooperativo_descripcionestado_key unique (descripcionestado)
+) TABLESPACE pg_default;
+
+create table public.historialestadocausa (
+  idhistorial serial not null,
+  idcausa integer not null,
+  idusuario integer not null,
+  idestadoanterior integer not null,
+  idestadonuevo integer not null,
+  fechacambio timestamp without time zone null default CURRENT_TIMESTAMP,
+  observaciones text null,
+  constraint historialestadocausa_pkey primary key (idhistorial),
+  constraint historialestadocausa_idcausa_fkey foreign KEY (idcausa) references causa (idcausa) on delete CASCADE,
+  constraint historialestadocausa_idestadoanterior_fkey foreign KEY (idestadoanterior) references estadocausa (idestadocausa),
+  constraint historialestadocausa_idestadonuevo_fkey foreign KEY (idestadonuevo) references estadocausa (idestadocausa),
+  constraint historialestadocausa_idusuario_fkey foreign KEY (idusuario) references usuarios (idusuario)
+) TABLESPACE pg_default;
+
+create table public.informe (
+  idinforme serial not null,
+  idoficio integer not null,
+  fechageneracion timestamp without time zone null default CURRENT_TIMESTAMP,
+  descripcion text null,
+  hash character varying(255) not null,
+  nombrearchivo character varying(255) not null,
+  fechaentrega timestamp without time zone null,
+  urldocumento character varying(255) not null,
+  constraint informe_pkey primary key (idinforme),
+  constraint informe_idoficio_fkey foreign KEY (idoficio) references oficio (idoficio) on delete CASCADE
+) TABLESPACE pg_default;
+
+create table public.notatecnica (
+  idnota serial not null,
+  iddispositivo integer not null,
+  descripcionnotatecnica text not null,
+  fechanota timestamp without time zone null default CURRENT_TIMESTAMP,
+  constraint notatecnica_pkey primary key (idnota),
+  constraint notatecnica_iddispositivo_fkey foreign KEY (iddispositivo) references dispositivo (iddispositivo) on delete CASCADE
+) TABLESPACE pg_default;
+
+create table public.oficio_dispositivo (
+  idoficio integer not null,
+  iddispositivo integer not null,
+  idestadooperativo integer not null,
+  procedimientotecnico text null,
+  rutaextraccion character varying(255) null,
+  metododesbloqueo character varying(100) null,
+  detalleembalaje text null,
+  rotulo text null,
+  constraint oficio_dispositivo_pkey primary key (idoficio, iddispositivo),
+  constraint oficio_dispositivo_iddispositivo_fkey foreign KEY (iddispositivo) references dispositivo (iddispositivo) on delete CASCADE,
+  constraint oficio_dispositivo_idestadooperativo_fkey foreign KEY (idestadooperativo) references estadooperativo (idestado),
+  constraint oficio_dispositivo_idoficio_fkey foreign KEY (idoficio) references oficio (idoficio) on delete CASCADE
+) TABLESPACE pg_default;
+
+create table public.oficio_perito (
+  idoficio integer not null,
+  idperito integer not null,
+  constraint oficio_perito_pkey primary key (idoficio, idperito),
+  constraint oficio_perito_idoficio_fkey foreign KEY (idoficio) references oficio (idoficio) on delete CASCADE,
+  constraint oficio_perito_idperito_fkey foreign KEY (idperito) references usuarios (idusuario) on delete CASCADE
+) TABLESPACE pg_default;
+
+create table public.persona (
+  idpersona serial not null,
+  nombre character varying(100) not null,
+  apellido character varying(100) not null,
+  dni character varying(20) null,
+  celular character varying(50) null,
+  domicilio character varying(255) null,
+  constraint persona_pkey primary key (idpersona),
+  constraint persona_dni_key unique (dni)
+) TABLESPACE pg_default;
+
+create table public.roles (
+  idrol serial not null,
+  descripcion character varying(50) not null,
+  constraint roles_pkey primary key (idrol),
+  constraint roles_descripcion_key unique (descripcion)
+) TABLESPACE pg_default;
+
+create table public.tipodelito (
+  iddelito serial not null,
+  descripcion character varying(150) not null,
+  constraint tipodelito_pkey primary key (iddelito),
+  constraint tipodelito_descripcion_key unique (descripcion)
+) TABLESPACE pg_default;
+
+create table public.tipodispositivo (
+  idtipodispositivo serial not null,
+  descripciontipo character varying(100) not null,
+  constraint tipodispositivo_pkey primary key (idtipodispositivo),
+  constraint tipodispositivo_descripciontipo_key unique (descripciontipo)
+) TABLESPACE pg_default;
+
+create table public.usuarios (
+  idusuario serial not null,
+  dni character varying(20) not null,
+  nombre character varying(100) not null,
+  apellido character varying(100) not null,
+  correo character varying(150) not null,
+  passwordhash character varying(255) not null,
+  idrol integer not null,
+  urlfotoperfil character varying(255) null,
+  constraint usuarios_pkey primary key (idusuario),
+  constraint usuarios_correo_key unique (correo),
+  constraint usuarios_dni_key unique (dni),
+  constraint usuarios_idrol_fkey foreign KEY (idrol) references roles (idrol)
+) TABLESPACE pg_default;

@@ -8,7 +8,7 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase.from("dispositivo").select("*").eq("idDispositivo", id).single();
+    const { data, error } = await supabase.from("dispositivo").select("*").eq("iddispositivo", id).single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 };
@@ -21,14 +21,14 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase.from("dispositivo").update(req.body).eq("idDispositivo", id).select();
+    const { data, error } = await supabase.from("dispositivo").update(req.body).eq("iddispositivo", id).select();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 };
 
 exports.remove = async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase.from("dispositivo").delete().eq("idDispositivo", id).select();
+    const { data, error } = await supabase.from("dispositivo").delete().eq("iddispositivo", id).select();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ message: "Deleted successfully", data });
 };
