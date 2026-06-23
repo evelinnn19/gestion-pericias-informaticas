@@ -8,7 +8,7 @@ exports.getAll = async (req, res) => {
 
 exports.getById = async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase.from("causa").select("*").eq("idCausa", id).single();
+    const { data, error } = await supabase.from("causa").select("*").eq("idcausa", id).single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 };
@@ -21,14 +21,14 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase.from("causa").update(req.body).eq("idCausa", id).select();
+    const { data, error } = await supabase.from("causa").update(req.body).eq("idcausa", id).select();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
 };
 
 exports.remove = async (req, res) => {
     const { id } = req.params;
-    const { data, error } = await supabase.from("causa").delete().eq("idCausa", id).select();
+    const { data, error } = await supabase.from("causa").delete().eq("idcausa", id).select();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ message: "Deleted successfully", data });
 };

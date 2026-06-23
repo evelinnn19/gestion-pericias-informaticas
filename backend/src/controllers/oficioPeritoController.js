@@ -13,7 +13,7 @@ exports.create = async (req, res) => {
 };
 
 exports.remove = async (req, res) => {
-    const { data, error } = await supabase.from("oficio_perito").delete().eq("idOficio", req.params.idOficio).eq("idPerito", req.params.idPerito).select();
+    const { data, error } = await supabase.from("oficio_perito").delete().eq("idoficio", req.params.idOficio).eq("idperito", req.params.idPerito).select();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ message: "Deleted successfully", data });
 };
