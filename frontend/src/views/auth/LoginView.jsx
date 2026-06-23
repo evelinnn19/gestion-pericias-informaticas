@@ -7,9 +7,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ShieldLockLogo } from '@/components/ui/Logo';
 import { supabase } from '@/lib/supabase';
 import { apiClient } from '@/api/client';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginView() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -55,10 +57,25 @@ export default function LoginView() {
       // PASO 2: Con el usuario autenticado, pedir el perfil y rol al backend.
       // El backend consulta la tabla pública "usuarios" por correo y devuelve el rol.
       const response = await apiClient.get(`/usuarios/perfil?correo=${encodeURIComponent(correoAutenticado)}`);
-      const { role } = response.data;
+      const { role, user: perfilUser } = response.data;
       const normalizedRole = role?.toLowerCase();
 
-      // PASO 3: Redirigir según el rol devuelto por el backend
+      // El backend devuelve { user: { nombre, correo, ... }, role: "..." }
+      // Intentamos distintos campos de nombre según la base de datos
+      const nombreUsuario =
+        perfilUser?.nombre ??
+        perfilUser?.name ??
+        perfilUser?.apellido_nombre ??
+        correoAutenticado;
+
+      // PASO 3: Guardar usuario en el contexto global
+      login({
+        email: correoAutenticado,
+        nombre: nombreUsuario,
+        role: normalizedRole,
+      });
+
+      // PASO 4: Redirigir según el rol devuelto por el backend
       switch (normalizedRole) {
         case 'administrador':
           navigate('/usuarios');
@@ -68,7 +85,7 @@ export default function LoginView() {
           break;
         case 'coordinador central':
         case 'coordinador':
-          navigate('/monitoreo');
+          navigate('/monitorio');
           break;
         case 'mesa de entrada':
           navigate('/mesa-entrada-dashboard');
