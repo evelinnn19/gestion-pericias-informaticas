@@ -1,16 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, CheckCircle, Loader2, Zap, Smartphone } from 'lucide-react';
+import { PlusCircle, Trash2, CheckCircle, Loader2, Zap, Smartphone, Search } from 'lucide-react';
 import { apiClient } from '@/api/client';
 
 /**
  * CargaOficioView
  *
  * Cascade de creación:
- *  1. Causa  (nrolegajo, caratula, fechaingreso=hoy, iddelito)
+ *  1. Causa  (nrolegajo, caratula, fechaingreso=manual, iddelito)
  *  2. Auto   (descripcionauto autogenerada)
  *  3. Persona × víctima  + auto_persona
  *  4. Persona × imputado + auto_persona
@@ -18,10 +18,11 @@ import { apiClient } from '@/api/client';
  *  6. Oficio (nrointerno autogenerado, fechahoraapertura opcional)
  *  7. oficio_perito (si se eligió perito)
  *  8. PUT causa → idestadocausa = 2 (En Proceso)
+ *
+ * Autocompletado de legajo:
+ *  Si el nroLegajo ingresado ya existe en la BD, se autocompletan
+ *  caratula, fiscalSolicitante e idDelito desde la causa existente.
  */
-
-// ── Fecha de hoy como string yyyy-mm-dd ──────────────────────────────────────
-const hoy = () => new Date().toISOString().split('T')[0];
 
 // ── Clase CSS compartida para selects ───────────────────────────────────────
 const SELECT_CLS =
@@ -30,6 +31,7 @@ const SELECT_CLS =
 export default function CargaOficioView() {
   const navigate = useNavigate();
   const anioActual = new Date().getFullYear();
+  const legajoDebounceRef = useRef(null);
 
   // ── Picklists ──────────────────────────────────────────────────────────────
   const [tiposDelito, setTiposDelito] = useState([]);
@@ -37,18 +39,22 @@ export default function CargaOficioView() {
   const [peritos, setPeritos] = useState([]);
   const [loadingPL, setLoadingPL] = useState(true);
 
+  // ── Autocompletado de legajo ───────────────────────────────────────────────
+  const [legajoLookupStatus, setLegajoLookupStatus] = useState('idle'); // 'idle' | 'loading' | 'found' | 'new'
+  const [causaExistente, setCausaExistente] = useState(null); // causa encontrada en BD
+
   // ── Form state ─────────────────────────────────────────────────────────────
   const [formData, setFormData] = useState({
     // Causa
     nroLegajo: '',
     caratula: '',
     idDelito: '',
+    fechaIngreso: '',        // → causa.fechaingreso (manual)
     // Oficio
     fiscalSolicitante: '',
-    prioridad: 'Normal',
     descripcionTareaOficio: '',
-    observacionDeVinculacion: '',
-    fechaHoraApertura: '',   // → oficio.fechahoraapertura
+    fechaApertura: '',       // → oficio.fechahoraapertura (parte fecha)
+    horaApertura: '',        // → oficio.fechahoraapertura (parte hora)
     // Asignación
     idPerito: '',
     // Personas
@@ -98,8 +104,42 @@ export default function CargaOficioView() {
     fetchPicklists();
   }, []);
 
+  // ── Autocompletado: busca la causa cuando el legajo cambia ────────────────
+  const buscarCausaPorLegajo = async (nroLegajo) => {
+    const val = nroLegajo.trim();
+    if (!val) {
+      setLegajoLookupStatus('idle');
+      setCausaExistente(null);
+      return;
+    }
+    setLegajoLookupStatus('loading');
+    try {
+      const res = await apiClient.get('/causa');
+      const causas = res.data ?? [];
+      const encontrada = causas.find(
+        (c) => String(c.nrolegajo ?? '').trim().toLowerCase() === val.toLowerCase()
+      );
+      if (encontrada) {
+        setCausaExistente(encontrada);
+        setLegajoLookupStatus('found');
+        // Autocompletar campos relacionados
+        setFormData((prev) => ({
+          ...prev,
+          caratula: encontrada.caratula ?? prev.caratula,
+          idDelito: encontrada.iddelito ? String(encontrada.iddelito) : prev.idDelito,
+          fiscalSolicitante: encontrada.fiscalsolicitante ?? prev.fiscalSolicitante,
+        }));
+      } else {
+        setCausaExistente(null);
+        setLegajoLookupStatus('new');
+      }
+    } catch (err) {
+      console.error('Error buscando causa por legajo:', err);
+      setLegajoLookupStatus('idle');
+    }
+  };
+
   // ── Descripción del Auto autogenerada ──────────────────────────────────────
-  // Formato: [Imputados] + conector + " por el delito de " + [delito] + " a " + [Víctimas]
   const descripcionAutoGenerada = useMemo(() => {
     const imputadoNombres = formData.imputados
       .filter((i) => i.nombre.trim())
@@ -128,8 +168,16 @@ export default function CargaOficioView() {
   }, [formData.victimas, formData.imputados, formData.idDelito, tiposDelito]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const handleChange = (e) =>
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Disparar búsqueda de legajo con debounce de 600ms
+    if (name === 'nroLegajo') {
+      if (legajoDebounceRef.current) clearTimeout(legajoDebounceRef.current);
+      legajoDebounceRef.current = setTimeout(() => buscarCausaPorLegajo(value), 600);
+    }
+  };
 
   const handlePersonaChange = (field, index, key, value) =>
     setFormData((prev) => {
@@ -169,6 +217,13 @@ export default function CargaOficioView() {
       return { ...prev, dispositivos: arr.length > 0 ? arr : [{ idtipodispositivo: '', marca: '', ubicacionfisica: '', propietario: '' }] };
     });
 
+  // ── Construir datetime de apertura ────────────────────────────────────────
+  const buildFechaHoraApertura = () => {
+    if (!formData.fechaApertura) return null;
+    const hora = formData.horaApertura || '00:00';
+    return new Date(`${formData.fechaApertura}T${hora}:00`).toISOString();
+  };
+
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -181,17 +236,26 @@ export default function CargaOficioView() {
       const resOficios = await apiClient.get('/oficio');
       const nroInterno = `${(resOficios.data ?? []).length + 1}/${anioActual}`;
 
-      // ── 1. Crear Causa (fechaingreso = hoy, automático) ────────────────────
-      const causaPayload = {
-        nrolegajo: formData.nroLegajo,
-        caratula: formData.caratula || formData.nroLegajo,
-        fechaingreso: new Date().toISOString(),
-      };
-      if (formData.idDelito) causaPayload.iddelito = parseInt(formData.idDelito, 10);
+      let idCausa;
 
-      const resCausa = await apiClient.post('/causa', causaPayload);
-      const idCausa = resCausa.data?.[0]?.idcausa ?? resCausa.data?.idcausa;
-      if (!idCausa) throw new Error('No se pudo obtener el ID de la causa creada.');
+      if (causaExistente) {
+        // Legajo ya existente: reutilizar la causa encontrada
+        idCausa = causaExistente.idcausa;
+      } else {
+        // ── 1. Crear Causa (fechaingreso = manual) ───────────────────────────
+        const causaPayload = {
+          nrolegajo: formData.nroLegajo,
+          caratula: formData.caratula || formData.nroLegajo,
+          fechaingreso: formData.fechaIngreso
+            ? new Date(formData.fechaIngreso).toISOString()
+            : new Date().toISOString(),
+        };
+        if (formData.idDelito) causaPayload.iddelito = parseInt(formData.idDelito, 10);
+
+        const resCausa = await apiClient.post('/causa', causaPayload);
+        idCausa = resCausa.data?.[0]?.idcausa ?? resCausa.data?.idcausa;
+        if (!idCausa) throw new Error('No se pudo obtener el ID de la causa creada.');
+      }
 
       // ── 2. Crear Auto (descripción autogenerada) ───────────────────────────
       const resAuto = await apiClient.post('/auto', {
@@ -206,7 +270,7 @@ export default function CargaOficioView() {
         if (!v.nombre.trim()) continue;
         const resP = await apiClient.post('/persona', {
           nombre: v.nombre.trim(),
-          apellido: v.apellido.trim() || '',   // NOT NULL: fallback a cadena vacía
+          apellido: v.apellido.trim() || '',
         });
         const idPersona = resP.data?.[0]?.idpersona ?? resP.data?.idpersona;
         if (idPersona) {
@@ -219,7 +283,7 @@ export default function CargaOficioView() {
         if (!imp.nombre.trim()) continue;
         const resP = await apiClient.post('/persona', {
           nombre: imp.nombre.trim(),
-          apellido: imp.apellido.trim() || '',  // NOT NULL: fallback a cadena vacía
+          apellido: imp.apellido.trim() || '',
         });
         const idPersona = resP.data?.[0]?.idpersona ?? resP.data?.idpersona;
         if (idPersona) {
@@ -231,13 +295,12 @@ export default function CargaOficioView() {
       const oficioPayload = {
         idcausa: idCausa,
         nrointerno: nroInterno,
-        fiscalsolicitante: formData.fiscalSolicitante.trim() || 'Sin datos',  // NOT NULL fallback
-        prioridad: formData.prioridad || 'Normal',
-        descripciontareaoficio: formData.descripcionTareaOficio.trim() || 'Sin descripción', // NOT NULL fallback
-        observaciondevinculacion: formData.observacionDeVinculacion.trim() || null,
+        fiscalsolicitante: formData.fiscalSolicitante.trim() || 'Sin datos',
+        descripciontareaoficio: formData.descripcionTareaOficio.trim() || 'Sin descripción',
       };
-      if (formData.fechaHoraApertura) {
-        oficioPayload.fechahoraapertura = new Date(formData.fechaHoraApertura).toISOString();
+      const fechaHoraApertura = buildFechaHoraApertura();
+      if (fechaHoraApertura) {
+        oficioPayload.fechahoraapertura = fechaHoraApertura;
       }
 
       const resOficio = await apiClient.post('/oficio', oficioPayload);
@@ -246,14 +309,14 @@ export default function CargaOficioView() {
 
       // ── 6. Dispositivos secuestrados → dispositivo + oficio_dispositivo ────
       for (const disp of formData.dispositivos) {
-        if (!disp.idtipodispositivo) continue; // skip vacíos
+        if (!disp.idtipodispositivo) continue;
 
         const resDisp = await apiClient.post('/dispositivo', {
           idtipodispositivo: parseInt(disp.idtipodispositivo, 10),
-          marca: disp.marca?.trim() || '',    // NOT NULL fallback
-          ubicacionfisica: disp.ubicacionfisica?.trim() || '',    // fallback
+          marca: disp.marca?.trim() || '',
+          ubicacionfisica: disp.ubicacionfisica?.trim() || '',
           propietario: disp.propietario?.trim() || '',
-          modelo: disp.modelo?.trim() || '',   // fallback
+          modelo: disp.modelo?.trim() || '',
         });
         const idDispositivo = resDisp.data?.[0]?.iddispositivo ?? resDisp.data?.iddispositivo;
 
@@ -261,7 +324,7 @@ export default function CargaOficioView() {
           await apiClient.post('/oficiodispositivo', {
             idoficio: idOficio,
             iddispositivo: idDispositivo,
-            idestadooperativo: 1, // Estado inicial por defecto
+            idestadooperativo: 1,
           });
         }
       }
@@ -288,13 +351,33 @@ export default function CargaOficioView() {
     }
   };
 
+  // ── Badge de estado del autocompletado de legajo ──────────────────────────
+  const legajoBadge = () => {
+    if (legajoLookupStatus === 'loading') return (
+      <span className="flex items-center gap-1.5 text-xs text-blue-600 font-medium">
+        <Loader2 className="w-3 h-3 animate-spin" /> Buscando legajo...
+      </span>
+    );
+    if (legajoLookupStatus === 'found') return (
+      <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
+        <CheckCircle className="w-3.5 h-3.5" /> Legajo existente — campos autocompletados
+      </span>
+    );
+    if (legajoLookupStatus === 'new') return (
+      <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+        <Zap className="w-3 h-3" /> Legajo nuevo — complete los datos de la causa
+      </span>
+    );
+    return null;
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="w-full">
       <h1 className="text-3xl font-bold text-[#1f3e97] mb-2">Carga de Oficio</h1>
       <p className="text-gray-500 text-sm mb-6">
-        Complete los datos del nuevo oficio. El N° Interno, la fecha de ingreso y la descripción del
-        Auto se generan automáticamente.
+        Complete los datos del nuevo oficio. El N° Interno y la descripción del Auto se generan
+        automáticamente. Si el legajo ya existe, los datos de la causa se autocompletarán.
       </p>
 
       {/* N° interno preview */}
@@ -326,7 +409,7 @@ export default function CargaOficioView() {
           <h3 className="text-lg font-bold text-[#1f3e97] mb-4 uppercase tracking-wide border-b border-blue-100 pb-2">
             Datos del Oficio
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label className="text-base font-semibold text-[#1f3e97]">Fiscal Solicitante *</Label>
               <Input
@@ -337,26 +420,29 @@ export default function CargaOficioView() {
                 required
               />
             </div>
+
+            {/* Fecha apertura de sobres + Hora */}
             <div className="space-y-2">
-              <Label className="text-base font-semibold text-[#1f3e97]">Prioridad</Label>
-              <div className="relative">
-                <select name="prioridad" value={formData.prioridad} onChange={handleChange} className={SELECT_CLS}>
-                  <option>Normal</option>
-                  <option>Alta</option>
-                  <option>Urgente</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">▾</div>
+              <Label className="text-base font-semibold text-[#1f3e97]">Fecha apertura de sobres</Label>
+              <div className="flex gap-3">
+                <Input
+                  type="date"
+                  name="fechaApertura"
+                  value={formData.fechaApertura}
+                  onChange={handleChange}
+                  className="bg-gray-50 border-gray-200 rounded-xl h-12 text-gray-700 flex-1"
+                />
+                <div className="flex flex-col gap-1 min-w-[130px]">
+                  <span className="text-xs text-gray-400 font-medium pl-1">Hora</span>
+                  <Input
+                    type="time"
+                    name="horaApertura"
+                    value={formData.horaApertura}
+                    onChange={handleChange}
+                    className="bg-gray-50 border-gray-200 rounded-xl h-12 text-gray-700"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-base font-semibold text-[#1f3e97]">Fecha del Acta de Apertura</Label>
-              <Input
-                type="date"
-                name="fechaHoraApertura"
-                value={formData.fechaHoraApertura}
-                onChange={handleChange}
-                className="bg-gray-50 border-gray-200 rounded-xl h-12 text-gray-700"
-              />
             </div>
           </div>
 
@@ -373,39 +459,28 @@ export default function CargaOficioView() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-base font-semibold text-[#1f3e97]">Observación de Vinculación</Label>
-              <textarea
-                name="observacionDeVinculacion"
-                value={formData.observacionDeVinculacion}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Observaciones adicionales (opcional)..."
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#1f3e97]/30 focus:border-[#1f3e97] transition-all"
-              />
-            </div>
-          </div>
 
-          {/* Perito asignado */}
-          <div className="space-y-2 mt-6 max-w-sm">
-            <Label className="text-base font-semibold text-[#1f3e97]">Perito Asignado</Label>
-            <div className="relative">
-              <select
-                name="idPerito"
-                value={formData.idPerito}
-                onChange={handleChange}
-                className={SELECT_CLS}
-                disabled={loadingPL}
-              >
-                <option value="">— Sin asignar —</option>
-                {peritos.map((p) => (
-                  <option key={p.idusuario} value={p.idusuario}>
-                    {p.nombre ?? ''} {p.apellido ?? ''}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                {loadingPL ? <Loader2 className="w-4 h-4 animate-spin" /> : '▾'}
+            {/* Perito asignado */}
+            <div className="space-y-2">
+              <Label className="text-base font-semibold text-[#1f3e97]">Perito Asignado</Label>
+              <div className="relative">
+                <select
+                  name="idPerito"
+                  value={formData.idPerito}
+                  onChange={handleChange}
+                  className={SELECT_CLS}
+                  disabled={loadingPL}
+                >
+                  <option value="">— Sin asignar —</option>
+                  {peritos.map((p) => (
+                    <option key={p.idusuario} value={p.idusuario}>
+                      {p.nombre ?? ''} {p.apellido ?? ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                  {loadingPL ? <Loader2 className="w-4 h-4 animate-spin" /> : '▾'}
+                </div>
               </div>
             </div>
           </div>
@@ -417,16 +492,12 @@ export default function CargaOficioView() {
             Datos de la Causa
           </h3>
 
-          {/* Fecha de ingreso automatizada (read-only) */}
-          <div className="mb-4 inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-500">
-            <Zap className="w-3.5 h-3.5 text-[#1f3e97]" />
-            Fecha de ingreso: <span className="font-semibold text-gray-700">{hoy()}</span>
-            <span className="text-xs text-gray-400">(asignada automáticamente)</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* N° Legajo con autocompletado */}
             <div className="space-y-2">
-              <Label className="text-base font-semibold text-[#1f3e97]">N° Legajo *</Label>
+              <Label className="text-base font-semibold text-[#1f3e97] flex items-center gap-1.5">
+                <Search className="w-4 h-4" /> N° Legajo *
+              </Label>
               <Input
                 name="nroLegajo"
                 value={formData.nroLegajo}
@@ -435,18 +506,27 @@ export default function CargaOficioView() {
                 className="bg-gray-50 border-gray-200 rounded-xl h-12 text-gray-700"
                 required
               />
+              <div className="min-h-[1.25rem]">{legajoBadge()}</div>
             </div>
+
+            {/* Fecha de ingreso del oficio (manual) */}
             <div className="space-y-2">
-              <Label className="text-base font-semibold text-[#1f3e97]">Carátula *</Label>
+              <Label className="text-base font-semibold text-[#1f3e97]">Fecha de Ingreso del Oficio *</Label>
               <Input
-                name="caratula"
-                value={formData.caratula}
+                type="date"
+                name="fechaIngreso"
+                value={formData.fechaIngreso}
                 onChange={handleChange}
-                placeholder="Carátula de la causa..."
                 className="bg-gray-50 border-gray-200 rounded-xl h-12 text-gray-700"
-                required
+                disabled={!!causaExistente}
+                required={!causaExistente}
               />
+              {causaExistente && (
+                <p className="text-xs text-gray-400">Causa existente — fecha ya registrada.</p>
+              )}
             </div>
+
+            {/* Tipo de Delito */}
             <div className="space-y-2">
               <Label className="text-base font-semibold text-[#1f3e97]">Tipo de Delito *</Label>
               <div className="relative">
@@ -462,6 +542,7 @@ export default function CargaOficioView() {
                       onChange={handleChange}
                       className={SELECT_CLS}
                       required
+                      disabled={!!causaExistente}
                     >
                       <option value="">— Seleccionar —</option>
                       {tiposDelito.map((d) => (
@@ -476,6 +557,34 @@ export default function CargaOficioView() {
               </div>
             </div>
           </div>
+
+          {/* Carátula */}
+          <div className="space-y-2">
+            <Label className="text-base font-semibold text-[#1f3e97]">Carátula *</Label>
+            <Input
+              name="caratula"
+              value={formData.caratula}
+              onChange={handleChange}
+              placeholder="Carátula de la causa..."
+              className="bg-gray-50 border-gray-200 rounded-xl h-12 text-gray-700"
+              required
+              disabled={!!causaExistente}
+            />
+          </div>
+
+          {/* Banner de causa existente */}
+          {causaExistente && (
+            <div className="mt-4 flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+              <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-emerald-800">Causa existente detectada</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Los campos de la causa han sido autocompletados. Puede continuar directamente
+                  con la carga del inventario de dispositivos.
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ── Sección: Auto ────────────────────────────────────────────────── */}
