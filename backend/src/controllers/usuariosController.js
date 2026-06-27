@@ -6,6 +6,38 @@ exports.getAll = async (req, res) => {
     res.json(data);
 };
 
+/**
+ * GET /api/usuarios/peritos
+ * Devuelve la lista de usuarios cuyo rol sea "perito".
+ * Hace JOIN con la tabla roles para filtrar por descripcion.
+ */
+exports.getPeritos = async (req, res) => {
+    try {
+        // Obtener el idrol correspondiente a 'perito'
+        const { data: rolData, error: rolError } = await supabase
+            .from("roles")
+            .select("idrol")
+            .ilike("descripcion", "perito")
+            .single();
+
+        if (rolError || !rolData) {
+            return res.json([]); // Rol no encontrado, devolver lista vacía
+        }
+
+        const { data, error } = await supabase
+            .from("usuarios")
+            .select("idusuario, nombre, apellido, correo, dni")
+            .eq("idrol", rolData.idrol)
+            .order("apellido", { ascending: true });
+
+        if (error) return res.status(500).json({ error: error.message });
+        res.json(data);
+    } catch (err) {
+        console.error("[getPeritos] Error:", err);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+
 exports.getById = async (req, res) => {
     const { id } = req.params;
     const { data, error } = await supabase.from("usuarios").select("*").eq("idusuario", id).single();
