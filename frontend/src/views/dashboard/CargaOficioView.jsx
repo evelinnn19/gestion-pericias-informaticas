@@ -20,8 +20,10 @@ import { apiClient } from '@/api/client';
  *  8. PUT causa → idestadocausa = 2 (En Proceso)
  *
  * Autocompletado de legajo:
- *  Si el nroLegajo ingresado ya existe en la BD, se autocompletan
- *  caratula, fiscalSolicitante e idDelito desde la causa existente.
+ *  Si el nroLegajo ingresado ya existe en la BD, se autocompletan caratula,
+ *  fiscalSolicitante, idDelito, víctimas e imputados desde la causa/auto existentes.
+ *  Todos los campos de Causa y Auto quedan en solo lectura; solo los campos
+ *  del nuevo Oficio y la sección de Dispositivos permanecen editables.
  */
 
 // ── Clase CSS compartida para selects ───────────────────────────────────────
@@ -119,16 +121,68 @@ export default function CargaOficioView() {
       const encontrada = causas.find(
         (c) => String(c.nrolegajo ?? '').trim().toLowerCase() === val.toLowerCase()
       );
+
       if (encontrada) {
         setCausaExistente(encontrada);
         setLegajoLookupStatus('found');
-        // Autocompletar campos relacionados
-        setFormData((prev) => ({
-          ...prev,
-          caratula: encontrada.caratula ?? prev.caratula,
-          idDelito: encontrada.iddelito ? String(encontrada.iddelito) : prev.idDelito,
-          fiscalSolicitante: encontrada.fiscalsolicitante ?? prev.fiscalSolicitante,
-        }));
+
+        // ── Autocompletar datos de la causa ──────────────────────────────────
+        const patchData = {
+          caratula: encontrada.caratula ?? '',
+          idDelito: encontrada.iddelito ? String(encontrada.iddelito) : '',
+          fiscalSolicitante: encontrada.fiscalsolicitante ?? '',
+        };
+
+        // ── Buscar el Auto vinculado a la causa y sus personas ───────────────
+        try {
+          const [resAutos, resPersonas] = await Promise.all([
+            apiClient.get('/auto'),
+            apiClient.get('/autopersona'),
+          ]);
+
+          const autos = resAutos.data ?? [];
+          const autoDeLaCausa = autos.find(
+            (a) => String(a.idcausa) === String(encontrada.idcausa)
+          );
+
+          if (autoDeLaCausa) {
+            const todasLasRelaciones = resPersonas.data ?? [];
+            const relacionesDeEsteAuto = todasLasRelaciones.filter(
+              (r) => String(r.idauto) === String(autoDeLaCausa.idauto)
+            );
+
+            // Obtener detalle de cada persona
+            const resAllPersonas = await apiClient.get('/persona');
+            const todasLasPersonas = resAllPersonas.data ?? [];
+
+            const victimas = relacionesDeEsteAuto
+              .filter((r) => String(r.rolenlacausa ?? '').toLowerCase() === 'víctima')
+              .map((r) => {
+                const p = todasLasPersonas.find(
+                  (pp) => String(pp.idpersona) === String(r.idpersona)
+                );
+                return p ? { nombre: p.nombre ?? '', apellido: p.apellido ?? '' } : null;
+              })
+              .filter(Boolean);
+
+            const imputados = relacionesDeEsteAuto
+              .filter((r) => String(r.rolenlacausa ?? '').toLowerCase() === 'imputado')
+              .map((r) => {
+                const p = todasLasPersonas.find(
+                  (pp) => String(pp.idpersona) === String(r.idpersona)
+                );
+                return p ? { nombre: p.nombre ?? '', apellido: p.apellido ?? '' } : null;
+              })
+              .filter(Boolean);
+
+            if (victimas.length > 0) patchData.victimas = victimas;
+            if (imputados.length > 0) patchData.imputados = imputados;
+          }
+        } catch (errPersonas) {
+          console.warn('No se pudieron cargar personas del auto:', errPersonas);
+        }
+
+        setFormData((prev) => ({ ...prev, ...patchData }));
       } else {
         setCausaExistente(null);
         setLegajoLookupStatus('new');
@@ -422,9 +476,9 @@ export default function CargaOficioView() {
             </div>
 
             {/* Fecha apertura de sobres + Hora */}
-            <div className="space-y-2">
-              <Label className="text-base font-semibold text-[#1f3e97]">Fecha apertura de sobres</Label>
-              <div className="flex gap-3">
+            <div className="flex gap-3 w-full">
+              <div className="flex-1 space-y-2">
+                <Label className="text-base font-semibold text-[#1f3e97]">Fecha apertura de sobres</Label>
                 <Input
                   type="date"
                   name="fechaApertura"
@@ -432,19 +486,21 @@ export default function CargaOficioView() {
                   onChange={handleChange}
                   className="bg-gray-50 border-gray-200 rounded-xl h-12 text-gray-700 flex-1"
                 />
-                <div className="flex flex-col gap-1 min-w-[130px]">
-                  <span className="text-xs text-gray-400 font-medium pl-1">Hora</span>
-                  <Input
-                    type="time"
-                    name="horaApertura"
-                    value={formData.horaApertura}
-                    onChange={handleChange}
-                    className="bg-gray-50 border-gray-200 rounded-xl h-12 text-gray-700"
-                  />
-                </div>
               </div>
+              <div className="min-w-[130px] space-y-2">
+                <span className="text-xs text-gray-400 font-medium pl-1">Hora</span>
+                <Input
+                  type="time"
+                  name="horaApertura"
+                  value={formData.horaApertura}
+                  onChange={handleChange}
+                  className="bg-gray-50 border-gray-200 rounded-xl h-12 text-gray-700"
+                />
+              </div>
+
             </div>
           </div>
+
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <div className="space-y-2">
@@ -579,8 +635,9 @@ export default function CargaOficioView() {
               <div>
                 <p className="text-sm font-semibold text-emerald-800">Causa existente detectada</p>
                 <p className="text-xs text-emerald-700 mt-0.5">
-                  Los campos de la causa han sido autocompletados. Puede continuar directamente
-                  con la carga del inventario de dispositivos.
+                  Los campos de la causa y el auto (víctimas e imputados) han sido autocompletados
+                  y quedan en modo solo lectura. Complete los datos del nuevo oficio y agregue
+                  los dispositivos correspondientes.
                 </p>
               </div>
             </div>
@@ -589,8 +646,14 @@ export default function CargaOficioView() {
 
         {/* ── Sección: Auto ────────────────────────────────────────────────── */}
         <section>
-          <h3 className="text-lg font-bold text-[#1f3e97] mb-4 uppercase tracking-wide border-b border-blue-100 pb-2">
+          <h3 className="text-lg font-bold text-[#1f3e97] mb-4 uppercase tracking-wide border-b border-blue-100 pb-2 flex items-center gap-2">
             Auto
+            {causaExistente && (
+              <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-0.5">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m0-6v2m0 6h.01M6.938 4h10.124A2 2 0 0119 5.882l1 14A2 2 0 0118.062 22H5.938A2 2 0 014 19.882l1-14A2 2 0 016.938 4z" /></svg>
+                Solo lectura
+              </span>
+            )}
           </h3>
 
           {/* Preview Auto autogenerado */}
@@ -615,62 +678,82 @@ export default function CargaOficioView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Víctimas */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold text-[#1f3e97]">Víctima/s *</Label>
+              <Label className="text-base font-semibold text-[#1f3e97]">Víctima/s {!causaExistente && '*'}</Label>
               {formData.victimas.map((v, i) => (
                 <div key={i} className="flex gap-2 items-center">
                   <Input
                     placeholder="Nombre"
                     value={v.nombre}
                     onChange={(e) => handlePersonaChange('victimas', i, 'nombre', e.target.value)}
-                    className="bg-gray-50 border-gray-200 rounded-xl h-11 text-gray-700 flex-1"
-                    required={i === 0}
+                    className={`rounded-xl h-11 text-gray-700 flex-1 border-gray-200 ${causaExistente
+                      ? 'bg-gray-100 cursor-not-allowed text-gray-500'
+                      : 'bg-gray-50'
+                      }`}
+                    readOnly={!!causaExistente}
+                    required={i === 0 && !causaExistente}
                   />
                   <Input
                     placeholder="Apellido"
                     value={v.apellido}
                     onChange={(e) => handlePersonaChange('victimas', i, 'apellido', e.target.value)}
-                    className="bg-gray-50 border-gray-200 rounded-xl h-11 text-gray-700 flex-1"
+                    className={`rounded-xl h-11 text-gray-700 flex-1 border-gray-200 ${causaExistente
+                      ? 'bg-gray-100 cursor-not-allowed text-gray-500'
+                      : 'bg-gray-50'
+                      }`}
+                    readOnly={!!causaExistente}
                   />
-                  {i > 0 && (
+                  {i > 0 && !causaExistente && (
                     <button type="button" onClick={() => removePersona('victimas', i)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
               ))}
-              <button type="button" onClick={() => addPersona('victimas')} className="flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors">
-                <PlusCircle className="w-4 h-4" /> Agregar víctima
-              </button>
+              {!causaExistente && (
+                <button type="button" onClick={() => addPersona('victimas')} className="flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors">
+                  <PlusCircle className="w-4 h-4" /> Agregar víctima
+                </button>
+              )}
             </div>
 
             {/* Imputados */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold text-[#1f3e97]">Imputado/s *</Label>
+              <Label className="text-base font-semibold text-[#1f3e97]">Imputado/s {!causaExistente && '*'}</Label>
               {formData.imputados.map((imp, i) => (
                 <div key={i} className="flex gap-2 items-center">
                   <Input
                     placeholder="Nombre"
                     value={imp.nombre}
                     onChange={(e) => handlePersonaChange('imputados', i, 'nombre', e.target.value)}
-                    className="bg-gray-50 border-gray-200 rounded-xl h-11 text-gray-700 flex-1"
-                    required={i === 0}
+                    className={`rounded-xl h-11 text-gray-700 flex-1 border-gray-200 ${causaExistente
+                      ? 'bg-gray-100 cursor-not-allowed text-gray-500'
+                      : 'bg-gray-50'
+                      }`}
+                    readOnly={!!causaExistente}
+                    required={i === 0 && !causaExistente}
                   />
                   <Input
                     placeholder="Apellido"
                     value={imp.apellido}
                     onChange={(e) => handlePersonaChange('imputados', i, 'apellido', e.target.value)}
-                    className="bg-gray-50 border-gray-200 rounded-xl h-11 text-gray-700 flex-1"
+                    className={`rounded-xl h-11 text-gray-700 flex-1 border-gray-200 ${causaExistente
+                      ? 'bg-gray-100 cursor-not-allowed text-gray-500'
+                      : 'bg-gray-50'
+                      }`}
+                    readOnly={!!causaExistente}
                   />
-                  {i > 0 && (
+                  {i > 0 && !causaExistente && (
                     <button type="button" onClick={() => removePersona('imputados', i)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
               ))}
-              <button type="button" onClick={() => addPersona('imputados')} className="flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors">
-                <PlusCircle className="w-4 h-4" /> Agregar imputado
-              </button>
+              {!causaExistente && (
+                <button type="button" onClick={() => addPersona('imputados')} className="flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-gray-800 transition-colors">
+                  <PlusCircle className="w-4 h-4" /> Agregar imputado
+                </button>
+              )}
             </div>
           </div>
         </section>
