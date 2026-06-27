@@ -20,11 +20,14 @@ import {
 } from '@/components/ui/table';
 import { Search, Flag, Pencil } from 'lucide-react';
 import { apiClient } from '@/api/client';
+import CalendarioGlobal, { useCalendarioData } from '@/components/ui/CalendarioGlobal';
 
 export default function PeritoDashboardView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [oficios, setOficios] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const calendarData = useCalendarioData();
 
   useEffect(() => {
     fetchData();
@@ -113,69 +116,76 @@ export default function PeritoDashboardView() {
         </div>
       </div>
 
-      {/* Table Area */}
-      <div className="flex-1 w-full bg-[#d0d7e8] rounded-xl overflow-hidden shadow-sm min-h-[300px]">
-        <Table>
-          <TableHeader className="border-b border-gray-300/50">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="font-bold text-gray-800 w-12"></TableHead>
-              <TableHead className="font-bold text-gray-800">N° Interno</TableHead>
-              <TableHead className="font-bold text-gray-800">N° Legajo</TableHead>
-              <TableHead className="font-bold text-gray-800">Carátula</TableHead>
-              <TableHead className="font-bold text-gray-800 text-center">Fecha de Entrega Estimada</TableHead>
-              <TableHead className="font-bold text-gray-800 text-center">Estado</TableHead>
-              <TableHead className="text-right"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {oficios.map((item) => (
-              <TableRow key={item.id} className="border-b border-gray-300/30 hover:bg-white/10 transition-colors align-top">
-                <TableCell className="pt-4">
-                  <Flag className={`w-5 h-5 ${item.urgente ? 'text-red-500 fill-red-500' : 'text-[#1f3e97]'}`} />
-                </TableCell>
-                <TableCell className="pt-4">
-                  <div className="font-bold text-gray-900">{item.interno}</div>
-                  {item.dispositivos.length > 0 ? (
-                    <>
-                      <div className="mt-2 text-xs text-gray-600 flex items-center gap-1 cursor-pointer">
-                        <span className="text-[10px]">👁</span> Ocultar Dispositivos
-                      </div>
-                      <div className="ml-4 mt-1">
-                        {item.dispositivos.map((disp, i) => (
-                          <div key={i} className="text-xs text-gray-800 font-semibold">{disp}</div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="mt-2 text-xs text-gray-400 flex items-center gap-1 cursor-pointer">
-                      <span className="text-[10px]">👁</span> Mostrar Dispositivos
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="pt-4 font-bold text-gray-900">{item.legajo}</TableCell>
-                <TableCell className="pt-4 font-bold text-gray-900">{item.caratula}</TableCell>
-                <TableCell className="pt-4 text-center">
-                  <div className="flex items-center justify-center gap-2 font-bold text-gray-900">
-                    {item.fechaEstimada} <Pencil className="w-4 h-4 text-[#1f3e97] cursor-pointer" />
-                  </div>
-                </TableCell>
-                <TableCell className="pt-4 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="bg-[#d4e157] text-gray-800 px-3 py-1 rounded-full text-xs font-bold">
-                      {item.estado}
-                    </span>
-                    <Pencil className="w-4 h-4 text-[#1f3e97] cursor-pointer" />
-                  </div>
-                </TableCell>
-                <TableCell className="pt-4 text-right">
-                  <Button size="sm" className="bg-[#1f3e97] hover:bg-blue-800 text-white rounded-full h-8 px-6 text-xs font-bold">
-                    Abrir Oficio
-                  </Button>
-                </TableCell>
+      {/* Main Content: Table + Calendar */}
+      <div className="flex flex-col lg:flex-row gap-8">
+        
+        {/* Table Area */}
+        <div className="flex-1 w-full bg-[#d0d7e8] rounded-xl overflow-hidden shadow-sm min-h-[300px]">
+          <Table>
+            <TableHeader className="border-b border-gray-300/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="font-bold text-gray-800 w-12"></TableHead>
+                <TableHead className="font-bold text-gray-800">N° Interno</TableHead>
+                <TableHead className="font-bold text-gray-800">N° Legajo</TableHead>
+                <TableHead className="font-bold text-gray-800">Carátula</TableHead>
+                <TableHead className="font-bold text-gray-800 text-center">Fecha de Entrega Estimada</TableHead>
+                <TableHead className="font-bold text-gray-800 text-center">Estado</TableHead>
+                <TableHead className="text-right"></TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {oficios.map((item) => (
+                <TableRow key={item.id} className="border-b border-gray-300/30 hover:bg-white/10 transition-colors align-top">
+                  <TableCell className="pt-4">
+                    <Flag className={`w-5 h-5 ${item.urgente ? 'text-red-500 fill-red-500' : 'text-[#1f3e97]'}`} />
+                  </TableCell>
+                  <TableCell className="pt-4">
+                    <div className="font-bold text-gray-900">{item.interno}</div>
+                    {item.dispositivos.length > 0 ? (
+                      <>
+                        <div className="mt-2 text-xs text-gray-600 flex items-center gap-1 cursor-pointer">
+                          <span className="text-[10px]">👁</span> Ocultar Dispositivos
+                        </div>
+                        <div className="ml-4 mt-1">
+                          {item.dispositivos.map((disp, i) => (
+                            <div key={i} className="text-xs text-gray-800 font-semibold">{disp}</div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="mt-2 text-xs text-gray-400 flex items-center gap-1 cursor-pointer">
+                        <span className="text-[10px]">👁</span> Mostrar Dispositivos
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="pt-4 font-bold text-gray-900">{item.legajo}</TableCell>
+                  <TableCell className="pt-4 font-bold text-gray-900">{item.caratula}</TableCell>
+                  <TableCell className="pt-4 text-center">
+                    <div className="flex items-center justify-center gap-2 font-bold text-gray-900">
+                      {item.fechaEstimada} <Pencil className="w-4 h-4 text-[#1f3e97] cursor-pointer" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="pt-4 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="bg-[#d4e157] text-gray-800 px-3 py-1 rounded-full text-xs font-bold">
+                        {item.estado}
+                      </span>
+                      <Pencil className="w-4 h-4 text-[#1f3e97] cursor-pointer" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="pt-4 text-right">
+                    <Button size="sm" className="bg-[#1f3e97] hover:bg-blue-800 text-white rounded-full h-8 px-6 text-xs font-bold">
+                      Abrir Oficio
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Calendario */}
+        <CalendarioGlobal {...calendarData} />
       </div>
 
       {/* Bottom Button */}

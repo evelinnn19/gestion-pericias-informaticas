@@ -30,11 +30,14 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/api/client';
 import ListadoOficiosReadOnly from '@/components/ui/ListadoOficiosReadOnly';
+import CalendarioGlobal, { useCalendarioData } from '@/components/ui/CalendarioGlobal';
 
 export default function UsuariosView() {
   // ── Búsqueda y filtro ──────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [rolSeleccionado, setRolSeleccionado] = useState('');
+
+  const calendarData = useCalendarioData();
 
   // ── Datos de usuarios ──────────────────────────────────────────────────────
   const [usersData, setUsersData] = useState([]);
@@ -313,7 +316,12 @@ export default function UsuariosView() {
         {/* Collapsible content */}
         {showOficiosList && (
           <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-            <ListadoOficiosReadOnly />
+            <div className="flex flex-col lg:flex-row gap-8">
+              <div className="flex-1">
+                <ListadoOficiosReadOnly />
+              </div>
+              <CalendarioGlobal {...calendarData} />
+            </div>
           </div>
         )}
       </section>

@@ -1,8 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { BarChart2 } from 'lucide-react';
 import ListadoOficiosReadOnly from '@/components/ui/ListadoOficiosReadOnly';
+import CalendarioGlobal, { useCalendarioData } from '@/components/ui/CalendarioGlobal';
 
 export default function MonitorioView() {
+  const calendarData = useCalendarioData();
+
   return (
     <div className="w-full flex flex-col min-h-[calc(100vh-100px)] gap-6">
 
@@ -20,8 +23,13 @@ export default function MonitorioView() {
         </Button>
       </div>
 
-      {/* Listado dinámico de oficios — componente compartido */}
-      <ListadoOficiosReadOnly />
+      {/* Listado dinámico de oficios — componente compartido + Calendario */}
+      <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex-1">
+          <ListadoOficiosReadOnly />
+        </div>
+        <CalendarioGlobal {...calendarData} />
+      </div>
 
       {/* Bottom Button — exclusivo del Coordinador */}
       <div className="pb-8">
