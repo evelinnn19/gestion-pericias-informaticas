@@ -9,6 +9,7 @@ import MonitorioView from './views/dashboard/MonitorioView';
 import UsuariosView from './views/dashboard/UsuariosView';
 import PeritoDashboardView from './views/dashboard/PeritoDashboardView';
 import MesaEntradaDashboardView from './views/dashboard/MesaEntradaDashboardView';
+import { Toaster } from 'sonner';
 
 function App() {
   return (
@@ -64,8 +65,10 @@ function App() {
           </Route>
         </Routes>
       </Router>
+      <Toaster position="top-right" richColors />
     </AuthProvider>
   );
 }
 
 export default App;
+

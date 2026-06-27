@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/table';
 import { Search, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { apiClient } from '@/api/client';
+import { toast } from 'sonner';
+
 export default function MesaEntradaDashboardView() {
   const navigate = useNavigate();
 
@@ -136,21 +138,27 @@ export default function MesaEntradaDashboardView() {
 
   // ── Manejo de asignación ───────────────────────────────────────────────────
   const handleAsignar = async (idOficio, idPerito, fechaHoraRealizacion) => {
-    // 1. Crear el acta de apertura
-    await apiClient.post('/actaapertura', {
-      idoficio: idOficio,
-      fechahorarealizacion: fechaHoraRealizacion,
-    });
+    try {
+      // 1. Crear el acta de apertura
+      await apiClient.post('/actaapertura', {
+        idoficio: idOficio,
+        fechahorarealizacion: fechaHoraRealizacion,
+      });
 
-    // 2. Crear la relación oficio-perito
-    await apiClient.post('/oficioperito', {
-      idoficio: idOficio,
-      idperito: idPerito,
-    });
+      // 2. Crear la relación oficio-perito
+      await apiClient.post('/oficioperito', {
+        idoficio: idOficio,
+        idperito: idPerito,
+      });
 
-    // 3. Cerrar modal y refrescar datos
-    setModalOficio(null);
-    await fetchData();
+      // 3. Cerrar modal y refrescar datos
+      setModalOficio(null);
+      await fetchData();
+      toast.success('¡Oficio asignado correctamente!');
+    } catch (err) {
+      console.error('Error al asignar perito:', err);
+      toast.error('Hubo un error al asignar el oficio.');
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────

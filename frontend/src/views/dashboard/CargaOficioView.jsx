@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlusCircle, Trash2, CheckCircle, Loader2, Zap, Smartphone, Search } from 'lucide-react';
 import { apiClient } from '@/api/client';
+import { toast } from 'sonner';
 
 /**
  * CargaOficioView
@@ -394,12 +395,12 @@ export default function CargaOficioView() {
       // ── 8. Actualizar estado de la Causa → En Proceso (idestadocausa = 2) ─
       await apiClient.put(`/causa/${idCausa}`, { idestadocausa: 2 });
 
-      setSuccessMsg(`¡Oficio N° ${nroInterno} cargado correctamente! Redirigiendo...`);
+      toast.success(`¡Oficio N° ${nroInterno} cargado correctamente! Redirigiendo...`);
       setTimeout(() => navigate('/mesa-entrada-dashboard'), 2000);
     } catch (err) {
       console.error('Error al cargar oficio:', err);
       const detail = err?.response?.data?.error ?? err?.message ?? 'Error desconocido.';
-      setErrorMsg(`Hubo un error al cargar el oficio: ${detail}`);
+      toast.error(`Hubo un error al cargar el oficio: ${detail}`);
     } finally {
       setLoading(false);
     }
