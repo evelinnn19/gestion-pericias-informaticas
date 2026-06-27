@@ -7,6 +7,13 @@ import { Label } from '@/components/ui/label';
 import CalendarioGlobal from '@/components/ui/CalendarioGlobal';
 import AsignacionModal from '@/components/ui/AsignacionModal';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -37,6 +44,12 @@ export default function MesaEntradaDashboardView() {
   const [filtroGeneral, setFiltroGeneral] = useState(false);
   const [expandedRows, setExpandedRows] = useState(new Set()); // para mostrar/ocultar dispositivos
 
+  const [idperitoFiltro, setIdperitoFiltro] = useState('');
+  const [iddelitoFiltro, setIddelitoFiltro] = useState('');
+  const [idestadoFiltro, setIdestadoFiltro] = useState('');
+  const [tiposDelito, setTiposDelito] = useState([]);
+  const [estadosCausa, setEstadosCausa] = useState([]);
+
   // ── Modal de asignación ────────────────────────────────────────────────────
   const [modalOficio, setModalOficio] = useState(null); // oficio seleccionado para asignar
 
@@ -45,17 +58,21 @@ export default function MesaEntradaDashboardView() {
     setLoading(true);
     setLoadError('');
     try {
-      const [resOficios, resCausas, resActas, resUsuarios, resRoles, resOficioPerito] = await Promise.all([
+      const [resOficios, resCausas, resActas, resUsuarios, resRoles, resOficioPerito, resDelitos, resEstados] = await Promise.all([
         apiClient.get('/oficio'),
         apiClient.get('/causa'),
         apiClient.get('/actaapertura'),
         apiClient.get('/usuarios'),
         apiClient.get('/picklists/roles'),
         apiClient.get('/oficioperito'),
+        apiClient.get('/picklists/tipodelito'),
+        apiClient.get('/picklists/estadocausa'),
       ]);
 
       setOficios(resOficios.data ?? []);
       setCausas(resCausas.data ?? []);
+      setTiposDelito(resDelitos.data ?? []);
+      setEstadosCausa(resEstados.data ?? []);
 
       // Guardar lista completa de actas para el calendario
       const actasData = resActas.data ?? [];
@@ -117,14 +134,35 @@ export default function MesaEntradaDashboardView() {
   const oficiosAsignados = oficios
     .filter((o) => actasIds.has(o.idoficio))
     .filter((o) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        o.nrointerno?.toLowerCase().includes(q) ||
-        getNroLegajo(o.idcausa)?.toLowerCase().includes(q) ||
-        o.fiscalsolicitante?.toLowerCase().includes(q) ||
-        o.descripciontareaoficio?.toLowerCase().includes(q)
-      );
+      // 1. Filtro Texto
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const nro = o.nrointerno?.toLowerCase() || '';
+        const leg = getNroLegajo(o.idcausa)?.toLowerCase() || '';
+        const fisc = o.fiscalsolicitante?.toLowerCase() || '';
+        const desc = o.descripciontareaoficio?.toLowerCase() || '';
+        if (!nro.includes(q) && !leg.includes(q) && !fisc.includes(q) && !desc.includes(q)) return false;
+      }
+      
+      // 2. Filtro Perito
+      if (idperitoFiltro) {
+        const peritosAsignados = oficioPeritoMap[o.idoficio] || [];
+        if (!peritosAsignados.includes(Number(idperitoFiltro))) return false;
+      }
+      
+      const causa = causas.find((c) => c.idcausa === o.idcausa);
+      
+      // 3. Filtro Delito
+      if (iddelitoFiltro) {
+        if (causa?.iddelito !== Number(iddelitoFiltro)) return false;
+      }
+      
+      // 4. Filtro Estado
+      if (idestadoFiltro) {
+        if (causa?.idestadocausa !== Number(idestadoFiltro)) return false;
+      }
+
+      return true;
     });
 
   /** Toggle mostrar/ocultar dispositivos de un oficio en la tabla */
@@ -193,7 +231,7 @@ export default function MesaEntradaDashboardView() {
             DEVOLUCIÓN DE DISPOSITIVO
           </Button>
           <Button className="bg-[#1f3e97] hover:bg-blue-800 text-white rounded-xl h-14 text-sm font-bold tracking-wide shadow-md">
-            GENERAR INFORME
+            REPORTES Y ESTADÍSTICAS
           </Button>
         </div>
 
@@ -282,38 +320,94 @@ export default function MesaEntradaDashboardView() {
         {/* Tabla principal de oficios asignados */}
         <div className="flex-1 flex flex-col">
           {/* Búsqueda y filtros */}
-          <div className="flex flex-col md:flex-row md:items-center gap-6 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-              <Input
-                placeholder="Buscar por N° Legajo, N° Interno, Fiscal..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-gray-50 border-gray-200 rounded-full h-12 text-base text-gray-700 w-full"
-              />
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="delitos-generales"
-                  checked={filtroGeneral}
-                  onCheckedChange={setFiltroGeneral}
-                  className="border-[#1f3e97] data-[state=checked]:bg-[#1f3e97] data-[state=checked]:text-white"
+          <div className="flex flex-col gap-4 mb-4">
+            <div className="flex flex-col md:flex-row md:items-center gap-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                <Input
+                  placeholder="Buscar por N° Legajo, N° Interno, Fiscal..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-gray-50 border-gray-200 rounded-full h-12 text-base text-gray-700 w-full"
                 />
-                <Label htmlFor="delitos-generales" className="text-sm font-semibold text-[#1f3e97]">
-                  Delitos Generales
-                </Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="delitos-narcomenudeo"
-                  checked={filtroNarco}
-                  onCheckedChange={setFiltroNarco}
-                  className="border-[#1f3e97] data-[state=checked]:bg-[#1f3e97] data-[state=checked]:text-white"
-                />
-                <Label htmlFor="delitos-narcomenudeo" className="text-sm font-semibold text-[#1f3e97]">
-                  Delitos de Narcomenudeo
-                </Label>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="delitos-generales"
+                    checked={filtroGeneral}
+                    onCheckedChange={setFiltroGeneral}
+                    className="border-[#1f3e97] data-[state=checked]:bg-[#1f3e97] data-[state=checked]:text-white"
+                  />
+                  <Label htmlFor="delitos-generales" className="text-sm font-semibold text-[#1f3e97]">
+                    Delitos Generales
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="delitos-narcomenudeo"
+                    checked={filtroNarco}
+                    onCheckedChange={setFiltroNarco}
+                    className="border-[#1f3e97] data-[state=checked]:bg-[#1f3e97] data-[state=checked]:text-white"
+                  />
+                  <Label htmlFor="delitos-narcomenudeo" className="text-sm font-semibold text-[#1f3e97]">
+                    Delitos de Narcomenudeo
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            {/* Filtros dinámicos (Perito, Delito, Estado) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-[#1f3e97]">Perito a Cargo</Label>
+                <Select value={idperitoFiltro} onValueChange={(val) => setIdperitoFiltro(val === 'todos' ? '' : val)}>
+                  <SelectTrigger className="w-full bg-gray-50 border-gray-200 rounded-full h-10 text-gray-700">
+                    <SelectValue placeholder="Todos los peritos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {peritos.map((p) => (
+                      <SelectItem key={p.idusuario} value={String(p.idusuario)}>
+                        {p.apellido}, {p.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-[#1f3e97]">Tipo de Delito</Label>
+                <Select value={iddelitoFiltro} onValueChange={(val) => setIddelitoFiltro(val === 'todos' ? '' : val)}>
+                  <SelectTrigger className="w-full bg-gray-50 border-gray-200 rounded-full h-10 text-gray-700">
+                    <SelectValue placeholder="Todos los delitos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {tiposDelito.map((d) => (
+                      <SelectItem key={d.iddelito} value={String(d.iddelito)}>
+                        {d.descripcion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-[#1f3e97]">Estado de Oficio</Label>
+                <Select value={idestadoFiltro} onValueChange={(val) => setIdestadoFiltro(val === 'todos' ? '' : val)}>
+                  <SelectTrigger className="w-full bg-gray-50 border-gray-200 rounded-full h-10 text-gray-700">
+                    <SelectValue placeholder="Todos los estados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {estadosCausa.map((e) => (
+                      <SelectItem key={e.idestadocausa} value={String(e.idestadocausa)}>
+                        {e.descripcion}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
