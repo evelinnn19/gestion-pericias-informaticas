@@ -26,7 +26,7 @@ function PieChart({ data, total }) {
     // Si la fracción es exactamente 1 (100%), el arco de SVG se cierra sobre sí mismo y no se dibuja.
     // Usamos 0.9999 para obligar a que dibuje el círculo (casi) completo.
     const fraction = rawFraction === 1 ? 0.9999 : rawFraction;
-    
+
     const startAngle = cumAngle;
     const endAngle = cumAngle + fraction * 2 * Math.PI;
     cumAngle = endAngle;
@@ -88,9 +88,9 @@ function PieChart({ data, total }) {
                 y={arc.ly + 1}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize="10"
+                fontSize="15"
                 fontWeight="bold"
-                fill="white"
+                fill="black"
               >
                 {Math.round(arc.fraction * 100)}%
               </text>
@@ -181,6 +181,7 @@ export default function GraficoDispositivos({ topDispositivos, maxDispositivoCou
                         style={{
                           width: `${(item.count / maxDispositivoCount) * 100}%`,
                           backgroundColor: PIE_COLORS[idx % PIE_COLORS.length],
+
                         }}
                       />
                     </div>
