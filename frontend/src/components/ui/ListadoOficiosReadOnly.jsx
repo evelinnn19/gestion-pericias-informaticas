@@ -74,10 +74,10 @@ export default function ListadoOficiosReadOnly() {
     setErrorOficios(null);
     try {
       const params = {};
-      if (busqueda.trim())   params.busqueda     = busqueda.trim();
-      if (idperito)          params.idperito      = idperito;
-      if (iddelito)          params.iddelito      = iddelito;
-      if (idestadocausa)     params.idestadocausa = idestadocausa;
+      if (busqueda.trim()) params.busqueda = busqueda.trim();
+      if (idperito) params.idperito = idperito;
+      if (iddelito) params.iddelito = iddelito;
+      if (idestadocausa) params.idestadocausa = idestadocausa;
 
       const { data } = await apiClient.get('/oficio/listado', { params });
       setOficiosData(data || []);
