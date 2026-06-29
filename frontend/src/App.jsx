@@ -9,6 +9,7 @@ import MonitorioView from './views/dashboard/MonitorioView';
 import UsuariosView from './views/dashboard/UsuariosView';
 import PeritoDashboardView from './views/dashboard/PeritoDashboardView';
 import MesaEntradaDashboardView from './views/dashboard/MesaEntradaDashboardView';
+import EstadisticaView from './views/dashboard/EstadisticaView';
 import { Toaster } from 'sonner';
 
 function App() {
@@ -59,6 +60,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MesaEntradaDashboardView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/estadistica"
+              element={
+                <ProtectedRoute>
+                  <EstadisticaView />
                 </ProtectedRoute>
               }
             />

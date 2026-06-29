@@ -3,11 +3,11 @@ import { supabase } from '@/lib/supabase';
 
 // Mapeo de roles a rutas permitidas
 export const ROLE_ROUTES = {
-  'administrador':       ['/usuarios'],
-  'perito':             ['/perito-dashboard'],
-  'coordinador central': ['/monitorio'],
-  'coordinador':        ['/monitorio'],
-  'mesa de entrada':    ['/mesa-entrada-dashboard', '/carga-oficio'],
+  'administrador':       ['/usuarios', '/estadistica'],
+  'perito':             ['/perito-dashboard', '/estadistica'],
+  'coordinador central': ['/monitorio', '/estadistica'],
+  'coordinador':        ['/monitorio', '/estadistica'],
+  'mesa de entrada':    ['/mesa-entrada-dashboard', '/carga-oficio', '/estadistica'],
 };
 
 // Ruta de inicio por rol

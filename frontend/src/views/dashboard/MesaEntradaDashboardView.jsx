@@ -143,20 +143,20 @@ export default function MesaEntradaDashboardView() {
         const desc = o.descripciontareaoficio?.toLowerCase() || '';
         if (!nro.includes(q) && !leg.includes(q) && !fisc.includes(q) && !desc.includes(q)) return false;
       }
-      
+
       // 2. Filtro Perito
       if (idperitoFiltro) {
         const peritosAsignados = oficioPeritoMap[o.idoficio] || [];
         if (!peritosAsignados.includes(Number(idperitoFiltro))) return false;
       }
-      
+
       const causa = causas.find((c) => c.idcausa === o.idcausa);
-      
+
       // 3. Filtro Delito
       if (iddelitoFiltro) {
         if (causa?.iddelito !== Number(iddelitoFiltro)) return false;
       }
-      
+
       // 4. Filtro Estado
       if (idestadoFiltro) {
         if (causa?.idestadocausa !== Number(idestadoFiltro)) return false;
@@ -230,8 +230,11 @@ export default function MesaEntradaDashboardView() {
           <Button className="bg-[#1f3e97] hover:bg-blue-800 text-white rounded-xl h-14 text-sm font-bold tracking-wide shadow-md">
             DEVOLUCIÓN DE DISPOSITIVO
           </Button>
-          <Button className="bg-[#1f3e97] hover:bg-blue-800 text-white rounded-xl h-14 text-sm font-bold tracking-wide shadow-md">
+          <Button
+            onClick={() => navigate('/estadistica')}
+            className="bg-[#1f3e97] hover:bg-blue-800 text-white rounded-xl h-14 text-sm font-bold tracking-wide shadow-md">
             REPORTES Y ESTADÍSTICAS
+
           </Button>
         </div>
 

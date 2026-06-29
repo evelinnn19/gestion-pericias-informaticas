@@ -1,5 +1,5 @@
-import { Outlet, useNavigate } from 'react-router-dom';
-import { UserCircle, LogOut } from 'lucide-react';
+import { Outlet, useNavigate, Link } from 'react-router-dom';
+import { UserCircle, LogOut, BarChart } from 'lucide-react';
 import { ShieldLockLogo } from '../ui/Logo';
 import { useAuth } from '@/context/AuthContext';
 
@@ -52,6 +52,19 @@ export default function MainLayout() {
               </span>
             </div>
           </div>
+
+          {/* Divider */}
+          <div className="h-8 w-px bg-gray-200" />
+
+          {/* Estadísticas link */}
+          <Link
+            to="/estadistica"
+            title="Estadísticas"
+            className="flex items-center gap-1.5 text-gray-500 hover:text-blue-600 transition-colors group"
+          >
+            <BarChart className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-medium hidden sm:inline">Estadísticas</span>
+          </Link>
 
           {/* Divider */}
           <div className="h-8 w-px bg-gray-200" />
