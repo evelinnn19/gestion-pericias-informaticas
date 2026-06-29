@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BackButton } from '@/components/ui/BackButton';
 import { PlusCircle, Trash2, CheckCircle, Loader2, Zap, Smartphone, Search } from 'lucide-react';
 import { apiClient } from '@/api/client';
 import { toast } from 'sonner';
@@ -429,7 +430,10 @@ export default function CargaOficioView() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="w-full">
-      <h1 className="text-3xl font-bold text-[#1f3e97] mb-2">Carga de Oficio</h1>
+      <div className="flex items-center gap-4 mb-2">
+        <BackButton />
+        <h1 className="text-3xl font-bold text-[#1f3e97]">Carga de Oficio</h1>
+      </div>
       <p className="text-gray-500 text-sm mb-6">
         Complete los datos del nuevo oficio. El N° Interno y la descripción del Auto se generan
         automáticamente. Si el legajo ya existe, los datos de la causa se autocompletarán.

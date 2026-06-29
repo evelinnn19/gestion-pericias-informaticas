@@ -7,6 +7,7 @@ import FiltrosEstadisticas from '@/components/estadisticas/FiltrosEstadisticas';
 import MetricasResumen from '@/components/estadisticas/MetricasResumen';
 import GraficoDelitos from '@/components/estadisticas/GraficoDelitos';
 import GraficoDispositivos from '@/components/estadisticas/GraficoDispositivos';
+import { BackButton } from '@/components/ui/BackButton';
 
 export default function EstadisticaView() {
   // ── Estado de carga ─────────────────────────────────────────────────────────
@@ -167,15 +168,18 @@ export default function EstadisticaView() {
   return (
     <div className="space-y-6 pb-12">
       {/* Encabezado */}
-      <div className="flex items-center gap-3">
-        <div className="p-3 bg-blue-100 rounded-lg text-blue-700">
-          <BarChart2 className="w-6 h-6" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Estadísticas</h2>
-          <p className="text-sm text-gray-500">
-            Métricas y análisis de delitos y dispositivos involucrados
-          </p>
+      <div className="flex items-center gap-4">
+        <BackButton />
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-blue-100 rounded-lg text-blue-700">
+            <BarChart2 className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Estadísticas</h2>
+            <p className="text-sm text-gray-500">
+              Métricas y análisis de delitos y dispositivos involucrados
+            </p>
+          </div>
         </div>
       </div>
 
