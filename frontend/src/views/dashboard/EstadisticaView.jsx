@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { BarChart2, Activity } from 'lucide-react';
+import { BarChart2, Activity, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { apiClient } from '@/api/client';
 import FiltrosEstadisticas from '@/components/estadisticas/FiltrosEstadisticas';
@@ -154,6 +156,84 @@ export default function EstadisticaView() {
     fechaInicio, fechaFin, filtroDelito, filtroDispositivo,
   ]);
 
+  // ── Descargar PDF ───────────────────────────────────────────────────────────
+  const handleDownloadPDF = useCallback(() => {
+    try {
+      const doc = new jsPDF();
+      
+      // Título
+      doc.setFontSize(18);
+      doc.text('Reporte de Estadísticas', 14, 22);
+      
+      // Filtros aplicados
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      let filtrosTexto = [];
+      if (fechaInicio || fechaFin) {
+        filtrosTexto.push(`Fechas: ${fechaInicio || 'Inicio'} al ${fechaFin || 'Hoy'}`);
+      }
+      
+      const nombreDelito = filtroDelito === 'todos' 
+        ? 'Todos' 
+        : delitos.find(d => String(d.iddelito) === filtroDelito)?.descripcion || filtroDelito;
+      filtrosTexto.push(`Delito: ${nombreDelito}`);
+
+      const nombreDispositivo = filtroDispositivo === 'todos'
+        ? 'Todos'
+        : tiposDispositivos.find(t => String(t.idtipodispositivo) === filtroDispositivo)?.descripciontipo || filtroDispositivo;
+      filtrosTexto.push(`Dispositivo: ${nombreDispositivo}`);
+      
+      doc.text(filtrosTexto.join(' | '), 14, 30);
+      
+      // Resumen General
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.text('Resumen General', 14, 42);
+      
+      autoTable(doc, {
+        startY: 46,
+        head: [['Causas', 'Oficios', 'Dispositivos']],
+        body: [
+          [estadisticas.totalCausas.toString(), estadisticas.totalOficios.toString(), estadisticas.totalDispositivos.toString()]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185] },
+      });
+
+      // Top 5 Delitos
+      let finalY = doc.lastAutoTable.finalY || 46;
+      doc.setFontSize(14);
+      doc.text('Top 5 Tipos de Delitos', 14, finalY + 12);
+      
+      autoTable(doc, {
+        startY: finalY + 16,
+        head: [['Tipo de Delito', 'Cantidad']],
+        body: estadisticas.topDelitos.map(d => [d.name, d.count.toString()]),
+        theme: 'striped',
+        headStyles: { fillColor: [52, 73, 94] },
+      });
+
+      // Top 5 Dispositivos
+      finalY = doc.lastAutoTable.finalY || finalY + 16;
+      doc.setFontSize(14);
+      doc.text('Top 5 Tipos de Dispositivos', 14, finalY + 12);
+      
+      autoTable(doc, {
+        startY: finalY + 16,
+        head: [['Tipo de Dispositivo', 'Cantidad']],
+        body: estadisticas.topDispositivos.map(d => [d.name, d.count.toString()]),
+        theme: 'striped',
+        headStyles: { fillColor: [52, 73, 94] },
+      });
+
+      doc.save('estadisticas_reporte.pdf');
+      toast.success('PDF descargado correctamente');
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      toast.error('Error al generar el PDF');
+    }
+  }, [estadisticas, fechaInicio, fechaFin, filtroDelito, filtroDispositivo, delitos, tiposDispositivos]);
+
   // ── Loading state ───────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -168,19 +248,28 @@ export default function EstadisticaView() {
   return (
     <div className="space-y-6 pb-12">
       {/* Encabezado */}
-      <div className="flex items-center gap-4">
-        <BackButton />
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-100 rounded-lg text-blue-700">
-            <BarChart2 className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Estadísticas</h2>
-            <p className="text-sm text-gray-500">
-              Métricas y análisis de delitos y dispositivos involucrados
-            </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <BackButton />
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-blue-100 rounded-lg text-blue-700">
+              <BarChart2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Estadísticas</h2>
+              <p className="text-sm text-gray-500">
+                Métricas y análisis de delitos y dispositivos involucrados
+              </p>
+            </div>
           </div>
         </div>
+        <button
+          onClick={handleDownloadPDF}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium"
+        >
+          <Download className="w-4 h-4" />
+          Descargar PDF
+        </button>
       </div>
 
       {/* Filtros */}
