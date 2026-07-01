@@ -76,14 +76,18 @@ export default function EstadisticaView() {
     // 1. Filtrar causas por fecha y tipo de delito
     let causasFiltradas = causas;
 
+    // Bug #3 fix: comparación lexicográfica de 'YYYY-MM-DD' — elimina ambigüedad
+    // de zonas horarias que ocurría al usar `new Date()` con strings de solo fecha.
+    const dateOf = (iso) => (iso || '').slice(0, 10);
+
     if (fechaInicio) {
       causasFiltradas = causasFiltradas.filter(
-        (c) => new Date(c.fechaingreso) >= new Date(fechaInicio)
+        (c) => dateOf(c.fechaingreso) >= fechaInicio
       );
     }
     if (fechaFin) {
       causasFiltradas = causasFiltradas.filter(
-        (c) => new Date(c.fechaingreso) <= new Date(fechaFin + 'T23:59:59')
+        (c) => dateOf(c.fechaingreso) <= fechaFin
       );
     }
     if (filtroDelito !== 'todos') {
@@ -114,7 +118,11 @@ export default function EstadisticaView() {
     // ── Conteo por tipo de delito ────────────────────────────────────────────
     const countDelitos = {};
     causasFiltradas.forEach((c) => {
-      const tipo = delitos.find((d) => d.iddelito === c.iddelito)?.descripcion || 'Desconocido';
+      // Bug #1 fix: normalizar ambos lados a String() para evitar number !== string
+      // cuando la API devuelve IDs como strings en lugar de números.
+      const tipo =
+        delitos.find((d) => String(d.iddelito) === String(c.iddelito))?.descripcion ||
+        'Desconocido';
       countDelitos[tipo] = (countDelitos[tipo] || 0) + 1;
     });
 
@@ -128,9 +136,11 @@ export default function EstadisticaView() {
     // ── Conteo por tipo de dispositivo ───────────────────────────────────────
     const countDispositivos = {};
     dispositivosFiltrados.forEach((d) => {
+      // Bug #2 fix: normalizar ambos lados a String() — mismo problema que Bug #1.
       const tipo =
-        tiposDispositivos.find((td) => td.idtipodispositivo === d.idtipodispositivo)
-          ?.descripciontipo || 'Desconocido';
+        tiposDispositivos.find(
+          (td) => String(td.idtipodispositivo) === String(d.idtipodispositivo)
+        )?.descripciontipo || 'Desconocido';
       countDispositivos[tipo] = (countDispositivos[tipo] || 0) + 1;
     });
 

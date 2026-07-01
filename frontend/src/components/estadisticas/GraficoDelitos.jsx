@@ -72,7 +72,7 @@ function BarChart({ data, maxValue, color }) {
             : item.name;
 
         return (
-          <g key={idx}>
+          <g key={item.name}>
             {/* Bar shadow */}
             <rect
               x={x + 2}
@@ -142,7 +142,8 @@ export default function GraficoDelitos({ topDelitos, maxDelitoCount }) {
             {/* Detailed ranking list */}
             <div className="space-y-5 pt-6 border-t border-gray-100">
               {topDelitos.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-4">
+                // Bug #5 fix: key estable basada en nombre del delito
+                <div key={item.name} className="flex items-center gap-4">
                   <span
                     className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm"
                     style={{ backgroundColor: COLORS[idx % COLORS.length] }}

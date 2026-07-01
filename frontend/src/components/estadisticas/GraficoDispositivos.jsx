@@ -71,7 +71,8 @@ function PieChart({ data, total }) {
         className="w-full max-w-[200px] h-auto aspect-square flex-shrink-0 drop-shadow-sm"
       >
         {arcs.map((arc) => (
-          <g key={arc.idx}>
+          // Bug #5 fix: key estable basada en el nombre del tipo de dispositivo
+          <g key={arc.item.name}>
             <path
               d={arc.d}
               fill={arc.color}
@@ -108,8 +109,9 @@ function PieChart({ data, total }) {
       {/* Legend */}
       <ul className="space-y-3 flex-1 min-w-0 w-full">
         {arcs.map((arc) => (
+          // Bug #5 fix: key estable basada en el nombre del tipo de dispositivo
           <li
-            key={arc.idx}
+            key={arc.item.name}
             className={`flex items-center gap-3 cursor-pointer rounded-xl px-3 py-2 transition-colors ${hoveredIdx === arc.idx ? 'bg-gray-50' : ''
               }`}
             onMouseEnter={() => setHoveredIdx(arc.idx)}
@@ -149,8 +151,13 @@ export default function GraficoDispositivos({ topDispositivos, maxDispositivoCou
       <CardContent className="p-6">
         {hasData ? (
           <div className="space-y-8">
-            {/* Pie chart */}
-            <PieChart data={topDispositivos} total={totalDispositivos} />
+            {/* Bug #4 fix: el total para el pie chart debe ser la suma de los ítems
+                mostrados (top 5), no el total general. Si hay más de 5 tipos, usar el
+                total general haría que las proporciones no cierren en 100%. */}
+            {(() => {
+              const totalMostrado = topDispositivos.reduce((acc, d) => acc + d.count, 0);
+              return <PieChart data={topDispositivos} total={totalMostrado} />;
+            })()}
 
             {/* Progress bars for comparison */}
             <div className="space-y-5 pt-6 border-t border-gray-100">
