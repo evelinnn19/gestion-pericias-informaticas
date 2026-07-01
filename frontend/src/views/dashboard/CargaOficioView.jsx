@@ -391,6 +391,16 @@ export default function CargaOficioView() {
         });
       }
 
+      // ── 7b. Crear acta de apertura si se proporcionó perito Y fecha ────────
+      // Esto es necesario para que el Dashboard reconozca este oficio como
+      // "asignado" y no lo muestre en la lista de pendientes.
+      if (formData.idPerito && fechaHoraApertura) {
+        await apiClient.post('/actaapertura', {
+          idoficio: idOficio,
+          fechahorarealizacion: fechaHoraApertura,
+        });
+      }
+
       // ── 8. Actualizar estado de la Causa → En Proceso (idestadocausa = 2) ─
       await apiClient.put(`/causa/${idCausa}`, { idestadocausa: 2 });
 

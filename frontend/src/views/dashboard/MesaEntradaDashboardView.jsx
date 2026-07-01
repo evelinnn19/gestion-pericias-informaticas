@@ -127,12 +127,25 @@ export default function MesaEntradaDashboardView() {
     return causa?.nrolegajo ?? '—';
   };
 
-  /** Oficios sin acta de apertura = pendientes de asignación */
-  const pendientes = oficios.filter((o) => !actasIds.has(o.idoficio));
+  /**
+   * Un oficio se considera "asignado" (no pendiente) si:
+   *   a) Tiene un registro en actaapertura (flujo normal del Dashboard), O
+   *   b) Tiene perito asignado Y fecha de apertura cargada desde CargaOficio
+   *      (red de seguridad para registros anteriores a este fix).
+   */
+  const estaAsignado = (o) => {
+    if (actasIds.has(o.idoficio)) return true;
+    const tienePerito = (oficioPeritoMap[o.idoficio] ?? []).length > 0;
+    const tieneFecha  = !!o.fechahoraapertura;
+    return tienePerito && tieneFecha;
+  };
 
-  /** Oficios con acta (ya asignados), con filtros de búsqueda */
+  /** Oficios pendientes de asignación completa */
+  const pendientes = oficios.filter((o) => !estaAsignado(o));
+
+  /** Oficios ya asignados, con filtros de búsqueda */
   const oficiosAsignados = oficios
-    .filter((o) => actasIds.has(o.idoficio))
+    .filter((o) => estaAsignado(o))
     .filter((o) => {
       // 1. Filtro Texto
       if (searchQuery) {
@@ -177,17 +190,25 @@ export default function MesaEntradaDashboardView() {
   // ── Manejo de asignación ───────────────────────────────────────────────────
   const handleAsignar = async (idOficio, idPerito, fechaHoraRealizacion) => {
     try {
-      // 1. Crear el acta de apertura
-      await apiClient.post('/actaapertura', {
-        idoficio: idOficio,
-        fechahorarealizacion: fechaHoraRealizacion,
-      });
+      // 1. Verificar si ya existe un acta para este oficio (evitar duplicado)
+      const actaExistente = actasList.find((a) => a.idoficio === idOficio);
 
-      // 2. Crear la relación oficio-perito
-      await apiClient.post('/oficioperito', {
-        idoficio: idOficio,
-        idperito: idPerito,
-      });
+      if (!actaExistente) {
+        // Crear el acta de apertura solo si no existe
+        await apiClient.post('/actaapertura', {
+          idoficio: idOficio,
+          fechahorarealizacion: fechaHoraRealizacion,
+        });
+      }
+
+      // 2. Verificar si ya existe la relación oficio-perito
+      const peritoYaAsignado = (oficioPeritoMap[idOficio] ?? []).includes(idPerito);
+      if (!peritoYaAsignado) {
+        await apiClient.post('/oficioperito', {
+          idoficio: idOficio,
+          idperito: idPerito,
+        });
+      }
 
       // 3. Cerrar modal y refrescar datos
       setModalOficio(null);
@@ -195,7 +216,8 @@ export default function MesaEntradaDashboardView() {
       toast.success('¡Oficio asignado correctamente!');
     } catch (err) {
       console.error('Error al asignar perito:', err);
-      toast.error('Hubo un error al asignar el oficio.');
+      const detail = err?.response?.data?.error ?? err?.message ?? 'Error desconocido.';
+      toast.error(`Hubo un error al asignar el oficio: ${detail}`);
     }
   };
 
@@ -445,8 +467,12 @@ export default function MesaEntradaDashboardView() {
                 )}
                 {!loading && oficiosAsignados.map((item) => {
                   const isExpanded = expandedRows.has(item.idoficio);
-                  const fechaApertura = item.fechahoraapertura
-                    ? new Date(item.fechahoraapertura).toLocaleString('es-AR', {
+
+                  // Buscar el acta de apertura asociada al oficio para obtener la fecha real
+                  const actaDelOficio = actasList.find((a) => a.idoficio === item.idoficio);
+                  const fechaRaw = actaDelOficio?.fechahorarealizacion ?? item.fechahoraapertura ?? null;
+                  const fechaApertura = fechaRaw
+                    ? new Date(fechaRaw).toLocaleString('es-AR', {
                       dateStyle: 'short',
                       timeStyle: 'short',
                     })
