@@ -128,11 +128,9 @@ export default function CargaOficioView() {
         setCausaExistente(encontrada);
         setLegajoLookupStatus('found');
 
-        // ── Autocompletar datos de la causa ──────────────────────────────────
         const patchData = {
           caratula: encontrada.caratula ?? '',
           idDelito: encontrada.iddelito ? String(encontrada.iddelito) : '',
-          fiscalSolicitante: encontrada.fiscalsolicitante ?? '',
         };
 
         // ── Buscar el Auto vinculado a la causa y sus personas ───────────────
